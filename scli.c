@@ -1,0 +1,252 @@
+
+
+/*
+	==================  SCLI ===================
+		=== Simple C Language Interpreter ===
+
+	HISTORY
+	Version 1.0 - 30/07/2020
+		- Added main interpreter
+		- Added commands:
+			reset, exit, clear, help
+
+	TO-DO
+		- Command line arguments:
+			> Choose compiler & options (gcc, clang, etc)
+			> Choose output filename 
+		- Support for other systems' command calls
+		- Command to navigate file pointer above main
+			to write includes, macros, structs, and functions
+		-Print command for quick printf
+
+*/
+
+const char *VERSION = "V 1.0";
+const char *VDATE = "30/07/2020";
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef unsigned short ushort;
+
+
+/* Slices string at two points */
+char *
+strslc(char *s, size_t i, size_t j)
+{
+	/* Input checks */
+	if( (i>j) || strlen(s)<(j-i+1) )
+		return (NULL);
+
+	/* Move pointer to left slice */
+	char *ptr;
+	ptr = s + i;
+
+	/* Null terminator after right slice */
+	ptr[j-i+1] = '\0';
+	
+	s = ptr;
+	return s;
+}
+
+
+/* Gets an input string from user */
+char *getstr(char *dest, const char *msg)
+{
+	size_t max_read = (size_t) 1E5;
+	printf("%s", msg);
+	char *ptr = fgets(dest, max_read, stdin);
+	if(!ptr)
+		return (NULL);
+	// Removes newline character from end of string
+	if (strchr(dest, '\n'))
+		strslc(dest, 0, strlen(dest)-2);
+	return dest;
+}
+
+
+
+/* Create beginning of basic main program */
+void createMain(FILE *outc)
+{
+	//Include standard libraries
+	fprintf(outc, "#include <stdio.h>\n");
+	fprintf(outc, "#include <stdlib.h>\n\n");
+	// Initiate main function
+	fprintf(outc, "int main(void){\n\n");
+}
+
+void seekMiddle(FILE *outc)
+{
+	//Return just before ending statements of main
+	int move = sizeof("return 0;\n}\n") + 1;
+	fseek(outc, -move, SEEK_END);
+}
+
+/* Write end of basic main */
+void endMain(FILE *outc)
+{
+	fprintf(outc, "return 0;\n");
+	fprintf(outc, "}\n");
+}
+
+void writeln(FILE *outc, const char *line)
+{
+	/*
+	Write line
+	Write return statement after that
+	Seek back to middle
+	*/
+	seekMiddle(outc);
+	fprintf(outc, "%s\n", line);
+	endMain(outc);
+	seekMiddle(outc);
+}
+
+int checkFile(const char *path)
+{
+	FILE *f = fopen(path, "r");
+	if(!f)
+		return 0;
+	fclose(f);
+	return 1;
+}
+
+/* Compile & execute program */
+void compile()
+{
+	if(checkFile("outc.c") == 1)
+		system("gcc outc.c -o outc.exe");
+	if(checkFile("outc.exe") == 1)
+		system("outc.exe");
+}
+
+
+void delIfExist(const char *path)
+{
+	if(checkFile(path) == 1)
+	{
+		char del[strlen(path)+5];
+		strcpy(del, "del ");
+		strcat(del, path);
+		system(del);
+	}
+}
+
+/*
+Checks if input line is command
+Returns file pointer if sucessfull
+and NULL otherwise
+*/
+FILE *checkCommands(const char *line, FILE *outc)
+{
+	// Exit program
+	if(strcmp(line, "exit") == 0){
+		fclose(outc);
+		delIfExist("outc.c");
+		delIfExist("outc.exe");
+		exit(0);
+	}
+	
+	// Reset c file
+	if(strcmp(line, "reset") == 0)
+	{
+		fclose(outc);
+		//Reset contents with new instance
+		FILE *temp = fopen("outc.c", "w");
+		fclose(temp);
+		//Redo file
+		FILE *new = fopen("outc.c", "w+");
+		createMain(new);
+		endMain(new);
+		seekMiddle(new);
+		//Delete executable
+		delIfExist("outc.exe");
+		//Clear
+		checkCommands("clear", outc);
+		return new;
+	}
+	// Clear
+	if(strcmp(line, "clear") == 0)
+	{
+		for(int i=0; i<20; i++)
+			printf("\n");
+		return outc;
+	}
+	// Print commands
+	if(strcmp(line, "help") == 0)
+	{
+		printf(" - reset - resets c file\n");
+		printf(" - clear - clears console\n");
+		printf(" - exit - exits interpreter\n");
+		printf(" - help - shows commands\n");
+		//printf(" - resetline - resets last written line (WIP)\n");
+		return outc;
+	}
+	return NULL;
+}
+
+
+/* Interpreter loop */
+void interpreter()
+{
+	//	CREATE C FILE
+	FILE *outc;
+	outc = fopen("outc.c", "w+");
+	if(!outc){
+		fprintf(stderr, " Error\n");
+		return;
+	}
+	/* Init main function */
+	createMain(outc);
+	/* Finish main */
+	endMain(outc);
+	/* Return file pointer to middle of main*/
+	seekMiddle(outc);
+
+	// INTERPRETER LOOP
+	ushort loop = 1;
+	while(loop == 1)
+	{
+		/* Get interpreter line */
+		printf("\n");
+		char line[100];
+		char *ret = getstr(line, "->");
+		if(!ret || strcmp(ret, "\0") == 0)
+			continue;
+		/* Check commands */
+		FILE *retf = checkCommands(line, outc);
+		if(retf){
+			outc = retf;
+			continue;
+		}
+		/* Write interpreter line */
+		writeln(outc, line);
+		/* Compile & execute */
+		compile();
+	}
+	/* Close file */
+	fclose(outc);
+}
+
+
+
+int main(void)
+{
+
+	//Just in case, delete temp files if exist
+	delIfExist("outc.c");
+	delIfExist("outc.exe");
+
+	//Intro
+	printf("\n");
+	printf(" SCLI - Simple C Language Interpreter\n");
+	printf(" %s (%s)\n", VERSION, VDATE);
+	printf(" Type 'help' for command list\n");
+
+	interpreter();
+
+	return 0;
+}
