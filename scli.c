@@ -19,6 +19,11 @@
 			to write includes, macros, structs, and functions
 		-Print command for quick printf
 
+		- Get whether compilation failed with
+			return value of system call.
+			SUCCESS: ret = 0
+			FAILED: ret = 1
+
 */
 
 const char *VERSION = "V 1.0";
@@ -78,6 +83,7 @@ void createMain(FILE *outc)
 	fprintf(outc, "int main(void){\n\n");
 }
 
+/* Moves stream pointer to the line before 'return 0;' */
 void seekMiddle(FILE *outc)
 {
 	//Return just before ending statements of main
@@ -85,20 +91,20 @@ void seekMiddle(FILE *outc)
 	fseek(outc, -move, SEEK_END);
 }
 
-/* Write end of basic main */
+/* Write end of basic main
+(return 0, close curly brackets) */
 void endMain(FILE *outc)
 {
 	fprintf(outc, "return 0;\n");
 	fprintf(outc, "}\n");
 }
 
+/*
+Writes return statement with an input line,
+and rewrites it below.
+*/
 void writeln(FILE *outc, const char *line)
 {
-	/*
-	Write line
-	Write return statement after that
-	Seek back to middle
-	*/
 	seekMiddle(outc);
 	fprintf(outc, "%s\n", line);
 	endMain(outc);
@@ -115,12 +121,18 @@ int checkFile(const char *path)
 }
 
 /* Compile & execute program */
-void compile()
+void compile(char *compilerCall)
 {
+	char call[strlen(compilerCall)+20];
+	strcpy(call, compilerCall);
+	strcat(call, " outc.c -o outc");
 	if(checkFile("outc.c") == 1)
-		system("gcc outc.c -o outc.exe");
+	{
+		int r = system(call);
+		printf(" Return value is %d\n", r);
+	}
 	if(checkFile("outc.exe") == 1)
-		system("outc.exe");
+		system("outc");
 }
 
 
@@ -151,7 +163,7 @@ FILE *checkCommands(const char *line, FILE *outc)
 	}
 	
 	// Reset c file
-	if(strcmp(line, "reset") == 0)
+	else if(strcmp(line, "reset") == 0)
 	{
 		fclose(outc);
 		//Reset contents with new instance
@@ -169,14 +181,14 @@ FILE *checkCommands(const char *line, FILE *outc)
 		return new;
 	}
 	// Clear
-	if(strcmp(line, "clear") == 0)
+	else if(strcmp(line, "clear") == 0)
 	{
 		for(int i=0; i<20; i++)
 			printf("\n");
 		return outc;
 	}
 	// Print commands
-	if(strcmp(line, "help") == 0)
+	else if(strcmp(line, "help") == 0)
 	{
 		printf(" - reset - resets c file\n");
 		printf(" - clear - clears console\n");
@@ -190,13 +202,13 @@ FILE *checkCommands(const char *line, FILE *outc)
 
 
 /* Interpreter loop */
-void interpreter()
+void interpreter(char *compilerCall)
 {
 	//	CREATE C FILE
 	FILE *outc;
 	outc = fopen("outc.c", "w+");
 	if(!outc){
-		fprintf(stderr, " Error\n");
+		fprintf(stderr, " Error creating file\n");
 		return;
 	}
 	/* Init main function */
@@ -213,7 +225,7 @@ void interpreter()
 		/* Get interpreter line */
 		printf("\n");
 		char line[100];
-		char *ret = getstr(line, "->");
+		char *ret = getstr(line, "> ");
 		if(!ret || strcmp(ret, "\0") == 0)
 			continue;
 		/* Check commands */
@@ -225,7 +237,7 @@ void interpreter()
 		/* Write interpreter line */
 		writeln(outc, line);
 		/* Compile & execute */
-		compile();
+		compile(compilerCall);
 	}
 	/* Close file */
 	fclose(outc);
@@ -233,8 +245,39 @@ void interpreter()
 
 
 
-int main(void)
+int main(int argc, char **argv)
 {
+	char compilerCall[100] = "gcc";
+
+	//Input commands
+	if(argc == 2){
+		if( strcmp(argv[1],"-h") == 0 || strcmp(argv[1],"--help") == 0 ){
+			printf(" Commands:\n");
+			printf(" -h, --help: displays available commands\n");
+			printf(" -c, --compiler: between double quotes;");
+			printf(" system call for compiling C code in your machine\n");
+			printf("	-> scli -c \"gcc -Wall -Wextra\" ");
+		}
+		else{
+			printf(" Unknown command\n");
+			return 0;
+		}
+	}
+
+	else if( argc == 3 ){
+		if ( strcmp(argv[1],"-c") == 0 || strcmp(argv[1],"--compiler") == 0 )
+			strcpy(compilerCall, argv[2]);
+		else{
+			printf(" Unknown command\n");
+			return 0;
+		}
+	}
+	
+	else if( argc > 3){
+		printf(" Too many commands\n");
+		return 0;
+	}
+	
 
 	//Just in case, delete temp files if exist
 	delIfExist("outc.c");
@@ -246,7 +289,7 @@ int main(void)
 	printf(" %s (%s)\n", VERSION, VDATE);
 	printf(" Type 'help' for command list\n");
 
-	interpreter();
+	interpreter(compilerCall);
 
 	return 0;
 }
