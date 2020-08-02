@@ -10,11 +10,16 @@
 		- Added commands:
 			reset, exit, clear, help
 
+	Version 1.1 - 01/08/2020
+		- Added option to choose compiler system call
+		via command line arguments.
+		e.g.	scli -c "ggc -Wall -Wextra"
+
 	TO-DO
 		- Command line arguments:
-			> Choose compiler & options (gcc, clang, etc)
 			> Choose output filename 
-		- Support for other systems' command calls
+		- Multi platform support for compiling to
+			executables
 		- Command to navigate file pointer above main
 			to write includes, macros, structs, and functions
 		-Print command for quick printf
@@ -26,50 +31,24 @@
 
 */
 
-const char *VERSION = "V 1.0";
-const char *VDATE = "30/07/2020";
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "utils.h"
+#include "printcmd.h"
+
+
+
+
+const char *VERSION = "V 1.1";
+const char *VDATE = "01/08/2020";
+
 typedef unsigned short ushort;
 
 
-/* Slices string at two points */
-char *
-strslc(char *s, size_t i, size_t j)
-{
-	/* Input checks */
-	if( (i>j) || strlen(s)<(j-i+1) )
-		return (NULL);
 
-	/* Move pointer to left slice */
-	char *ptr;
-	ptr = s + i;
-
-	/* Null terminator after right slice */
-	ptr[j-i+1] = '\0';
-	
-	s = ptr;
-	return s;
-}
-
-
-/* Gets an input string from user */
-char *getstr(char *dest, const char *msg)
-{
-	size_t max_read = (size_t) 1E5;
-	printf("%s", msg);
-	char *ptr = fgets(dest, max_read, stdin);
-	if(!ptr)
-		return (NULL);
-	// Removes newline character from end of string
-	if (strchr(dest, '\n'))
-		strslc(dest, 0, strlen(dest)-2);
-	return dest;
-}
+//--------------------------------------------------------
 
 
 
@@ -121,7 +100,7 @@ int checkFile(const char *path)
 }
 
 /* Compile & execute program */
-void compile(char *compilerCall)
+void compile(const char *compilerCall)
 {
 	char call[strlen(compilerCall)+20];
 	strcpy(call, compilerCall);
@@ -152,7 +131,7 @@ Checks if input line is command
 Returns file pointer if sucessfull
 and NULL otherwise
 */
-FILE *checkCommands(const char *line, FILE *outc)
+FILE *checkCommands(char *line, FILE *outc, char *comp)
 {
 	// Exit program
 	if(strcmp(line, "exit") == 0){
@@ -177,7 +156,7 @@ FILE *checkCommands(const char *line, FILE *outc)
 		//Delete executable
 		delIfExist("outc.exe");
 		//Clear
-		checkCommands("clear", outc);
+		checkCommands("clear", outc, comp);
 		return new;
 	}
 	// Clear
@@ -187,16 +166,31 @@ FILE *checkCommands(const char *line, FILE *outc)
 			printf("\n");
 		return outc;
 	}
-	// Print commands
+	// Help - Print commands
 	else if(strcmp(line, "help") == 0)
 	{
 		printf(" - reset - resets c file\n");
 		printf(" - clear - clears console\n");
+		printf(" - print - prints variables and text\n");
 		printf(" - exit - exits interpreter\n");
 		printf(" - help - shows commands\n");
 		//printf(" - resetline - resets last written line (WIP)\n");
 		return outc;
 	}
+
+	// Print function
+	else if( isPrintCalled(line) )
+	{
+		char printCommand[MAX_LINE_SIZE];
+		if( print_cmd(line, printCommand) )
+		{
+			writeln(outc, printCommand);
+			compile(comp);
+			return outc;
+		}
+		return outc;
+	}
+
 	return NULL;
 }
 
@@ -229,7 +223,7 @@ void interpreter(char *compilerCall)
 		if(!ret || strcmp(ret, "\0") == 0)
 			continue;
 		/* Check commands */
-		FILE *retf = checkCommands(line, outc);
+		FILE *retf = checkCommands(line, outc, compilerCall);
 		if(retf){
 			outc = retf;
 			continue;
