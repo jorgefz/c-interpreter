@@ -109,8 +109,8 @@ void compile(const char *compilerCall)
 	strcat(call, " outc.c -o outc");
 	if(checkFile("outc.c") == 1)
 	{
-		int r = system(call);
-		printf(" Return value is %d\n", r);
+		system(call);
+		//printf(" Return value is %d\n", r);
 	}
 	if(checkFile("outc.exe") == 1)
 		system("outc");

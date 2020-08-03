@@ -315,7 +315,7 @@ char *print_cmd(const char *input, char *pcmd)
 		}
 	}
 
-	printf("-> %s\n", prnt);
+	//printf("-> %s\n", prnt);
 	strcpy(pcmd, prnt);
 	return pcmd;
 }
