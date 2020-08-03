@@ -4,6 +4,14 @@ Line per line interactive C compiler wrapper. This program provides a console on
 
 The console can also recognise a series of special commands to interact with the C file and facilitate code writing.
 
+## Compilation
+
+To compile the code, input the files `scli.c`, `printcmd.c`, and `utils.c` into your compiler arguments. For example,
+
+```
+gcc -Wall -Wextra scli.c printcmd.c utils.c -o scli
+```
+
 ## Commands
 
 * 'help' - displays the command list
