@@ -12,6 +12,19 @@ To compile the code, input the files `scli.c`, `printcmd.c`, and `utils.c` into 
 gcc -Wall -Wextra scli.c printcmd.c utils.c -o scli
 ```
 
+## Command Line Arguments
+
+The program comes with simple command line arguments:
+
+* '-h' '--help': Displays available commands
+* '-c' '--compiler': system call for compiling C code in your system, enclosed by double quotes.
+
+For example,
+
+```
+scli --compiler "gcc -Wall -Wextra"
+```
+
 ## Commands
 
 * 'help' - displays the command list
