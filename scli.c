@@ -15,6 +15,9 @@
 		via command line arguments.
 		e.g.	scli -c "ggc -Wall -Wextra"
 
+	Version 1.2  - 02/08/2020
+		- Added print command
+
 	TO-DO
 		- Command line arguments:
 			> Choose output filename 
@@ -22,7 +25,6 @@
 			executables
 		- Command to navigate file pointer above main
 			to write includes, macros, structs, and functions
-		-Print command for quick printf
 
 		- Get whether compilation failed with
 			return value of system call.
