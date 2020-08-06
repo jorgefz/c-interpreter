@@ -18,6 +18,11 @@
 	Version 1.2  - 02/08/2020
 		- Added print command
 
+	Version 1.3 - 06/08/2020
+		- Added rline command
+		- Added show command
+		- Added support for Linux & MacOS systems
+
 	TO-DO
 		- Command line arguments:
 			> Choose output filename 
@@ -40,11 +45,28 @@
 #include "utils.h"
 #include "printcmd.h"
 
+// OS dependent global variables
+#if defined (_WIN32)
+const int OS_WIN = 1;
+const int OS_UNIX = 0;
+const char *EXENAME = "outc.exe";
+const char *CALLCMD = "outc";
+const char *DELCMD = "del ";
+
+#elif defined (__APPLE__) || defined (__linux__)
+const int OS_WIN = 0;
+const int OS_UNIX = 1;
+const char *EXENAME = "outc";
+const char *CALLCMD = "./outc";
+const char *DELCMD = "rm ";
+
+#endif
 
 
+const char *VERSION = "V 1.3";
+const char *VDATE = "06/08/2020";
 
-const char *VERSION = "V 1.1";
-const char *VDATE = "01/08/2020";
+const char *CPATH = "outc.c";
 
 typedef unsigned short ushort;
 
@@ -52,6 +74,15 @@ typedef unsigned short ushort;
 
 //--------------------------------------------------------
 
+void printFileLines()
+{
+	FILE *read = fopen(CPATH,"r");
+	fseek(read, 0, SEEK_SET);
+	char c;
+	while( (c = fgetc(read)) != EOF )
+		printf("%c",c);
+	fclose(read);
+}
 
 
 /* Create beginning of basic main program */
@@ -68,8 +99,24 @@ void createMain(FILE *outc)
 void seekMiddle(FILE *outc)
 {
 	//Return just before ending statements of main
-	int move = sizeof("return 0;\n}\n") + 1;
-	fseek(outc, -move, SEEK_END);
+	fseek(outc, 0, SEEK_CUR);
+	fseek(outc, -1, SEEK_END);
+
+
+	while(1){
+		char c = fgetc(outc);
+		if(c == '}')
+			break;
+		else if(c == '\n' && OS_WIN == 1)
+			fseek(outc, -3, SEEK_CUR);
+		else
+			fseek(outc, -2, SEEK_CUR);
+	}
+
+	//Add 1 if Windows for \r
+	int move = sizeof("return 0;\n}") + OS_WIN;
+	fseek(outc, -move, SEEK_CUR);
+	fseek(outc, 0, SEEK_CUR);
 }
 
 /* Write end of basic main
@@ -87,9 +134,18 @@ and rewrites it below.
 void writeln(FILE *outc, const char *line)
 {
 	seekMiddle(outc);
-	fprintf(outc, "%s\n", line);
+	/*Switch reading -> writing */
+	fseek(outc, 0, SEEK_CUR);
+
+	fprintf(outc, "\n%s\n", line);
 	endMain(outc);
+
+	/* Switch writing -> reading */
+	fflush(outc);
 	seekMiddle(outc);
+
+	/* Switch reading -> writing */
+	fseek(outc, 0 , SEEK_CUR);
 }
 
 int checkFile(const char *path)
@@ -106,14 +162,13 @@ void compile(const char *compilerCall)
 {
 	char call[strlen(compilerCall)+20];
 	strcpy(call, compilerCall);
-	strcat(call, " outc.c -o outc");
-	if(checkFile("outc.c") == 1)
-	{
+	strcat(call, " ");
+	strcat(call, CPATH);
+	strcat(call, " -o outc");
+	if(checkFile(CPATH) == 1)
 		system(call);
-		//printf(" Return value is %d\n", r);
-	}
-	if(checkFile("outc.exe") == 1)
-		system("outc");
+	if(checkFile(EXENAME) == 1)
+		system(CALLCMD);
 }
 
 
@@ -122,10 +177,73 @@ void delIfExist(const char *path)
 	if(checkFile(path) == 1)
 	{
 		char del[strlen(path)+5];
-		strcpy(del, "del ");
+		strcpy(del, DELCMD);
 		strcat(del, path);
 		system(del);
 	}
+}
+
+
+FILE *rline(FILE *outc, int *lwritten)
+{
+	//Don't remove lines if there are no lines!
+	//Otherwise, main() declaration is removed
+	if(*lwritten == 0)
+		return outc;
+
+	/* writing -> reading */
+	fflush(outc);
+	seekMiddle(outc);
+
+	//Back out one char to avoid previous newline
+	fseek(outc, -2, SEEK_CUR);
+	//Now we are at ';' of statement before return 0;
+
+	/*
+	Moving 3 positions accounts for '\r\n' in Windows,
+	and for fgetc jump;
+	but MacOS and Linux only use '\n' so the value
+	should be -2 for those systems.
+	*/
+
+	//Loop backwards until beginning of previous line
+	int rmchars = 0;
+
+	char c = ' ';
+	while( c != '\n'){
+		c = fgetc(outc);
+		fseek(outc, -2, SEEK_CUR);
+		rmchars++;
+	}
+	fseek(outc,1+OS_UNIX, SEEK_CUR);
+	rmchars -= OS_UNIX;
+
+	// Reading -> writing
+	fseek(outc, 0, SEEK_CUR);
+
+	//Subtitute everything below with whitespaces
+	int move = rmchars + sizeof("\nreturn 0;\n}\n");
+	for(int i=0; i<move; i++){
+		fprintf(outc, " ");
+	}
+
+	// Writing -> reading
+	fflush(outc);
+
+	//Roll back so new input line overwrites whitespaces
+	fseek(outc, -move-1, SEEK_CUR);
+	fseek(outc, 0, SEEK_CUR);
+	fprintf(outc, "\n");
+	
+	//Rewrite end of main
+	endMain(outc);
+
+	fflush(outc);
+	seekMiddle(outc);
+
+	//Update line counter
+	(*lwritten)--;
+	return outc;
 }
 
 /*
@@ -133,13 +251,13 @@ Checks if input line is command
 Returns file pointer if sucessfull
 and NULL otherwise
 */
-FILE *checkCommands(char *line, FILE *outc, char *comp)
+FILE *checkCommands(char *line, FILE *outc, char *comp, int *lwritten)
 {
 	// Exit program
 	if(strcmp(line, "exit") == 0){
 		fclose(outc);
-		delIfExist("outc.c");
-		delIfExist("outc.exe");
+		delIfExist(CPATH);
+		delIfExist(EXENAME);
 		exit(0);
 	}
 	
@@ -148,17 +266,19 @@ FILE *checkCommands(char *line, FILE *outc, char *comp)
 	{
 		fclose(outc);
 		//Reset contents with new instance
-		FILE *temp = fopen("outc.c", "w");
+		FILE *temp = fopen(CPATH, "w");
 		fclose(temp);
 		//Redo file
-		FILE *new = fopen("outc.c", "w+");
+		FILE *new = fopen(CPATH, "w+");
 		createMain(new);
 		endMain(new);
 		seekMiddle(new);
 		//Delete executable
-		delIfExist("outc.exe");
+		delIfExist(EXENAME);
 		//Clear
-		checkCommands("clear", outc, comp);
+		checkCommands("clear", outc, comp, lwritten);
+		//Reset lines counter
+		*lwritten = 0;
 		return new;
 	}
 	// Clear
@@ -175,8 +295,9 @@ FILE *checkCommands(char *line, FILE *outc, char *comp)
 		printf(" - clear - clears console\n");
 		printf(" - print - prints variables and text\n");
 		printf(" - exit - exits interpreter\n");
+		printf(" - rline - removes the last line written\n");
 		printf(" - help - shows commands\n");
-		//printf(" - resetline - resets last written line (WIP)\n");
+		printf(" - show - displays code lines so far\n");
 		return outc;
 	}
 
@@ -188,8 +309,22 @@ FILE *checkCommands(char *line, FILE *outc, char *comp)
 		{
 			writeln(outc, printCommand);
 			compile(comp);
+			(*lwritten)++;
 			return outc;
 		}
+		return outc;
+	}
+
+	// Remove line (rline)
+	// Maybe add an argument to remove N lines?
+	else if(strcmp(line, "rline") == 0)
+	{
+		rline(outc, lwritten);
+		return outc;
+	}
+
+	else if(strcmp(line, "show") == 0){
+		printFileLines();
 		return outc;
 	}
 
@@ -202,19 +337,27 @@ void interpreter(char *compilerCall)
 {
 	//	CREATE C FILE
 	FILE *outc;
-	outc = fopen("outc.c", "w+");
+	outc = fopen(CPATH, "w+");
 	if(!outc){
 		fprintf(stderr, " Error creating file\n");
 		return;
 	}
 	/* Init main function */
 	createMain(outc);
+
 	/* Finish main */
 	endMain(outc);
+	fflush(outc);
+
 	/* Return file pointer to middle of main*/
 	seekMiddle(outc);
+	fseek(outc, 0, SEEK_CUR);
 
 	// INTERPRETER LOOP
+
+	//Counter for total lines written by user
+	int lwritten = 0;
+	//Loop variable
 	ushort loop = 1;
 	while(loop == 1)
 	{
@@ -225,7 +368,7 @@ void interpreter(char *compilerCall)
 		if(!ret || strcmp(ret, "\0") == 0)
 			continue;
 		/* Check commands */
-		FILE *retf = checkCommands(line, outc, compilerCall);
+		FILE *retf = checkCommands(line, outc, compilerCall, &lwritten);
 		if(retf){
 			outc = retf;
 			continue;
@@ -234,6 +377,8 @@ void interpreter(char *compilerCall)
 		writeln(outc, line);
 		/* Compile & execute */
 		compile(compilerCall);
+		// Increase lines written counter
+		lwritten++;
 	}
 	/* Close file */
 	fclose(outc);
@@ -276,8 +421,8 @@ int main(int argc, char **argv)
 	
 
 	//Just in case, delete temp files if exist
-	delIfExist("outc.c");
-	delIfExist("outc.exe");
+	delIfExist(CPATH);
+	delIfExist(EXENAME);
 
 	//Intro
 	printf("\n");

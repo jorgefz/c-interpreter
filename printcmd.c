@@ -59,16 +59,19 @@ char *strins(char *dest, char *src, size_t ind)
 	char temp[MAX_LINE_SIZE];
 		
 	//Copy chars before ind
-	for(int i=0; i<(int)ind; i++)
+	for(int i=0; i<(int)ind; i++){
 		temp[i] = dest[i];
+	}
 
 	//Insert new string
-	for(int i=0; i<(int)strlen(src); i++)
+	for(int i=0; i<(int)strlen(src); i++){
         temp[i+ind] = src[i];
+	}
 
 	//Copy rest of characters of dest
-    for(int i=ind; i<(int)strlen(dest); i++)
+    for(int i=ind; i<(int)strlen(dest); i++){
         temp[i+strlen(src)] = dest[i];
+    }
 
 	//Termination char
 	temp[strlen(dest)+strlen(src)] = '\0';
