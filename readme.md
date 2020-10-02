@@ -9,7 +9,7 @@ The console can also recognise a series of special commands to interact with the
 To compile the code, input the files `scli.c`, `printcmd.c`, and `utils.c` into your compiler arguments. For example,
 
 ```
-gcc -Wall -Wextra scli.c printcmd.c utils.c -o scli
+gcc -Wall -Wextra scli.c printcmd.c utils.c arglib.c -o scli
 ```
 
 ## Command Line Arguments
@@ -18,11 +18,12 @@ The program comes with simple command line arguments:
 
 * '-h' '--help': Displays available commands
 * '-c' '--compiler': system call for compiling C code in your system, enclosed by double quotes.
+* '-a' '--args': arguments to include when calling the compiled C code.
 
 For example,
 
 ```
-scli --compiler "gcc -Wall -Wextra"
+scli --compiler "gcc -Wall -Wextra" --args "-o output.dat --flag"
 ```
 
 ## Commands

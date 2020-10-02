@@ -23,6 +23,13 @@
 		- Added show command
 		- Added support for Linux & MacOS systems
 
+	WIP
+	Version 1.4 - 02/10/2020
+		- Added argc and argv to main
+		- Added command -a/--args that sets the
+		input arguments for the C file to interpret.
+
+
 	TO-DO
 		- Command line arguments:
 			> Choose output filename 
@@ -44,6 +51,7 @@
 
 #include "utils.h"
 #include "printcmd.h"
+#include "arglib.h"
 
 // OS dependent global variables
 #if defined (_WIN32)
@@ -63,8 +71,8 @@ const char *DELCMD = "rm ";
 #endif
 
 
-const char *VERSION = "V 1.3";
-const char *VDATE = "06/08/2020";
+const char *VERSION = "V 1.4";
+const char *VDATE = "02/10/2020";
 
 const char *CPATH = "outc.c";
 
@@ -92,7 +100,7 @@ void createMain(FILE *outc)
 	fprintf(outc, "#include <stdio.h>\n");
 	fprintf(outc, "#include <stdlib.h>\n\n");
 	// Initiate main function
-	fprintf(outc, "int main(void){\n\n");
+	fprintf(outc, "int main(int argc, const char *argv[]){\n\n");
 }
 
 /* Moves stream pointer to the line before 'return 0;' */
@@ -158,17 +166,22 @@ int checkFile(const char *path)
 }
 
 /* Compile & execute program */
-void compile(const char *compilerCall)
+void compile(const char *compilerCall, const char *args)
 {
 	char call[strlen(compilerCall)+20];
 	strcpy(call, compilerCall);
 	strcat(call, " ");
 	strcat(call, CPATH);
 	strcat(call, " -o outc");
-	if(checkFile(CPATH) == 1)
+	if(checkFile(CPATH) == 1){
 		system(call);
-	if(checkFile(EXENAME) == 1)
-		system(CALLCMD);
+	}
+	if(checkFile(EXENAME) == 1){
+		char execCall[strlen(CALLCMD)+strlen(args)+20];
+		strcpy(execCall, CALLCMD);
+		strcat(execCall, args);
+		system(execCall);
+	}
 }
 
 
@@ -251,7 +264,7 @@ Checks if input line is command
 Returns file pointer if sucessfull
 and NULL otherwise
 */
-FILE *checkCommands(char *line, FILE *outc, char *comp, int *lwritten)
+FILE *checkCommands(char *line, FILE *outc, char *comp, char *args, int *lwritten)
 {
 	// Exit program
 	if(strcmp(line, "exit") == 0){
@@ -276,7 +289,7 @@ FILE *checkCommands(char *line, FILE *outc, char *comp, int *lwritten)
 		//Delete executable
 		delIfExist(EXENAME);
 		//Clear
-		checkCommands("clear", outc, comp, lwritten);
+		checkCommands("clear", outc, comp, args, lwritten);
 		//Reset lines counter
 		*lwritten = 0;
 		return new;
@@ -308,7 +321,7 @@ FILE *checkCommands(char *line, FILE *outc, char *comp, int *lwritten)
 		if( print_cmd(line, printCommand) )
 		{
 			writeln(outc, printCommand);
-			compile(comp);
+			compile(comp, args);
 			(*lwritten)++;
 			return outc;
 		}
@@ -333,7 +346,7 @@ FILE *checkCommands(char *line, FILE *outc, char *comp, int *lwritten)
 
 
 /* Interpreter loop */
-void interpreter(char *compilerCall)
+void interpreter(char *compilerCall, char *args)
 {
 	//	CREATE C FILE
 	FILE *outc;
@@ -368,7 +381,7 @@ void interpreter(char *compilerCall)
 		if(!ret || strcmp(ret, "\0") == 0)
 			continue;
 		/* Check commands */
-		FILE *retf = checkCommands(line, outc, compilerCall, &lwritten);
+		FILE *retf = checkCommands(line, outc, compilerCall, args, &lwritten);
 		if(retf){
 			outc = retf;
 			continue;
@@ -376,7 +389,7 @@ void interpreter(char *compilerCall)
 		/* Write interpreter line */
 		writeln(outc, line);
 		/* Compile & execute */
-		compile(compilerCall);
+		compile(compilerCall, args);
 		// Increase lines written counter
 		lwritten++;
 	}
@@ -386,11 +399,34 @@ void interpreter(char *compilerCall)
 
 
 
-int main(int argc, char **argv)
+int main(int argc, const char **argv)
 {
 	char compilerCall[100] = "gcc";
+	char arguments[100] = " ";
+
+	_ARGS *arg = arglib_init();
+	arglib_add_option(arg, 'c', "compiler", "system call for compiling C code", ARG_STR, ARG_OPT);
+	arglib_add_option(arg, 'a', "args", "input arguments to pass to compiled C code", ARG_STR, ARG_OPT);
+
+	_ARGS *ret = arglib_parse(arg, argc, argv);
+	if(!ret){
+		return 1;
+	}
+
+	char *comp = arglib_get_value(arg, "compiler");
+	if(comp && strlen(comp) < 100){
+		strcpy(compilerCall, comp);
+	}
+
+	char *args = arglib_get_value(arg, "args");
+	if(args && strlen(args) < 100){
+		strcat(arguments, args);
+	}
+
+	arglib_free(arg);
 
 	//Input commands
+	/*
 	if(argc == 2){
 		if( strcmp(argv[1],"-h") == 0 || strcmp(argv[1],"--help") == 0 ){
 			printf(" Commands:\n");
@@ -418,6 +454,7 @@ int main(int argc, char **argv)
 		printf(" Too many commands\n");
 		return 0;
 	}
+	*/
 	
 
 	//Just in case, delete temp files if exist
@@ -430,7 +467,7 @@ int main(int argc, char **argv)
 	printf(" %s (%s)\n", VERSION, VDATE);
 	printf(" Type 'help' for command list\n");
 
-	interpreter(compilerCall);
+	interpreter(compilerCall, arguments);
 
 	return 0;
 }
