@@ -6,11 +6,13 @@ The console can also recognise a series of special commands to interact with the
 
 ## Compilation
 
-To compile the code, input the files `scli.c`, `printcmd.c`, and `utils.c` into your compiler arguments. For example,
+To compile the code, navigate to the source code folder and type the following:
 
 ```
-gcc -Wall -Wextra scli.c printcmd.c utils.c arglib.c -o scli
+make sclimake
 ```
+
+Note: it requires the GNU C Compiler (gcc).
 
 ## Command Line Arguments
 
