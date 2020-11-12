@@ -23,11 +23,13 @@
 		- Added show command
 		- Added support for Linux & MacOS systems
 
-	WIP
 	Version 1.4 - 02/10/2020
 		- Added argc and argv to main
 		- Added command -a/--args that sets the
 		input arguments for the C file to interpret.
+
+	Version 1.5 - 12/11/2020
+		- Updated arglib
 
 
 	TO-DO
@@ -404,57 +406,25 @@ int main(int argc, const char **argv)
 	char compilerCall[100] = "gcc";
 	char arguments[100] = " ";
 
-	_ARGS *arg = arglib_init();
-	arglib_add_option(arg, 'c', "compiler", "system call for compiling C code", ARG_STR, ARG_OPT);
-	arglib_add_option(arg, 'a', "args", "input arguments to pass to compiled C code", ARG_STR, ARG_OPT);
+	arglib_init();
+	arglib_add_option('c', "compiler", "system call for compiling C code", ARG_STR, ARG_OPT);
+	arglib_add_option('a', "args", "input arguments to pass to compiled C code", ARG_STR, ARG_OPT);
 
-	_ARGS *ret = arglib_parse(arg, argc, argv);
-	if(!ret){
+	if(!arglib_parse(argc, argv)){
 		return 1;
 	}
 
-	char *comp = arglib_get_value(arg, "compiler");
+	char *comp = arglib_get_value("compiler");
 	if(comp && strlen(comp) < 100){
 		strcpy(compilerCall, comp);
 	}
 
-	char *args = arglib_get_value(arg, "args");
+	char *args = arglib_get_value("args");
 	if(args && strlen(args) < 100){
 		strcat(arguments, args);
 	}
 
-	arglib_free(arg);
-
-	//Input commands
-	/*
-	if(argc == 2){
-		if( strcmp(argv[1],"-h") == 0 || strcmp(argv[1],"--help") == 0 ){
-			printf(" Commands:\n");
-			printf(" -h, --help: displays available commands\n");
-			printf(" -c, --compiler: between double quotes;");
-			printf(" system call for compiling C code in your machine\n");
-			printf("	-> scli -c \"gcc -Wall -Wextra\" ");
-		}
-		else{
-			printf(" Unknown command\n");
-			return 0;
-		}
-	}
-
-	else if( argc == 3 ){
-		if ( strcmp(argv[1],"-c") == 0 || strcmp(argv[1],"--compiler") == 0 )
-			strcpy(compilerCall, argv[2]);
-		else{
-			printf(" Unknown command\n");
-			return 0;
-		}
-	}
-	
-	else if( argc > 3){
-		printf(" Too many commands\n");
-		return 0;
-	}
-	*/
+	arglib_free();
 	
 
 	//Just in case, delete temp files if exist
